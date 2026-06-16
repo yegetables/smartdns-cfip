@@ -1,0 +1,32 @@
+version: "3"
+
+services:
+  smartdns:
+    image: pymumu/smartdns:latest
+    container_name: smartdns
+    restart: always
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+    volumes:
+      # 配置文件模板 (entrypoint 据此生成实际配置)
+      - ./smartdns.conf:/etc/smartdns/smartdns.conf.template:ro
+      # 启动脚本
+      - ./entrypoint.sh:/entrypoint.sh:ro
+      # Cloudflare IP 目录 (CF 段 + 优选 IP，外部可编辑)
+      - ./cloudflare-ips:/var/lib/smartdns/cloudflare-ips
+      # 持久化数据 (宿主机目录，方便直接查看和管理)
+      - ./smartdns-data:/var/lib/smartdns
+      - ./smartdns-logs:/var/log/smartdns
+      # 显式覆盖 VOLUME 指令，用 bind mount 把 /etc/smartdns 目录整个挂掉
+      - ./smartdns-config:/etc/smartdns
+    environment:
+      - TZ=Asia/Shanghai
+    ports:
+      - "6053:53/udp"
+      - "6053:53/tcp"
+      - "36080:6080"
+    networks:
+      - 1panel-network
+
+networks:
+  1panel-network:
+    external: true

@@ -1,0 +1,9 @@
+# Runtime data — don't track
+smartdns-data/
+smartdns-config/
+smartdns-logs/
+*.cache
+*.db
+*.db-shm
+*.db-wal
+.env
