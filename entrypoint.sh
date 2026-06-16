@@ -1,7 +1,7 @@
 #!/bin/sh
 # SmartDNS 入口脚本
 # - 启动时下载 Cloudflare IP 段 + 生成配置
-# - 每 6 小时: 刷新 CF IP 段 + 清理旧日志 + 维护 SQLite
+# - 每天: 刷新 CF IP 段 + 清理旧日志 + 维护 SQLite
 
 DATA_DIR=/var/lib/smartdns
 CF_DIR="${DATA_DIR}/cloudflare-ips"
@@ -148,16 +148,16 @@ cleanup_logs() {
 }
 
 # ============================================
-# 函数: 后台定期刷新 (每 6 小时)
+# 函数: 后台定期刷新 (每 24 小时)
 # ============================================
 periodic_refresh() {
     while true; do
-        sleep 21600
-        echo "[cron] --- 定期刷新开始 ---"
+        sleep 86400
+        echo "[cron] --- 每日刷新开始 ---"
         download_cf_ips
         generate_config
         cleanup_logs
-        echo "[cron] --- 定期刷新完成 (下次 6 小时后) ---"
+        echo "[cron] --- 每日刷新完成 (下次 24 小时后) ---"
     done &
 }
 
