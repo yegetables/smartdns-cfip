@@ -1,5 +1,3 @@
-﻿# Cloudflare IPv6 CIDR (启动时自动从 cloudflare.com 更新)
-# 此文件由 entrypoint.sh 自动维护，无需手动编辑
 2400:cb00::/32
 2606:4700::/32
 2803:f800::/32
