@@ -51,20 +51,32 @@ download_cf_ips() {
     echo "[entrypoint] 拉取 Cloudflare IP 段..."
     mkdir -p "$CF_DIR"
 
-    # IPv4
-    if http_get "$CF_IPV4_URL" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' > "${CF_DIR}/cloudflare-ipv4.txt"; then
+    # IPv4 — 下载到临时文件，下载失败或结果为空则保留旧文件
+    tmp4=$(mktemp)
+    if http_get "$CF_IPV4_URL" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+' > "$tmp4" && [ -s "$tmp4" ]; then
+        mv "$tmp4" "${CF_DIR}/cloudflare-ipv4.txt"
         echo "[entrypoint] IPv4: $(wc -l < "${CF_DIR}/cloudflare-ipv4.txt") 条"
     else
-        echo "[entrypoint] IPv4 下载失败，保留旧文件"
-        [ -f "${CF_DIR}/cloudflare-ipv4.txt" ] || echo "# Cloudflare IPv4" > "${CF_DIR}/cloudflare-ipv4.txt"
+        rm -f "$tmp4"
+        echo "[entrypoint] IPv4 下载失败或结果为空，保留旧文件"
+        if [ ! -s "${CF_DIR}/cloudflare-ipv4.txt" ]; then
+            echo "[entrypoint] ⚠ 旧文件也不存在或为空，写入占位标记"
+            echo "# Cloudflare IPv4 (fallback)" > "${CF_DIR}/cloudflare-ipv4.txt"
+        fi
     fi
 
-    # IPv6
-    if http_get "$CF_IPV6_URL" | grep -oE '[0-9a-fA-F:]+/[0-9]+' > "${CF_DIR}/cloudflare-ipv6.txt"; then
+    # IPv6 — 下载到临时文件，下载失败或结果为空则保留旧文件
+    tmp6=$(mktemp)
+    if http_get "$CF_IPV6_URL" | grep -oE '[0-9a-fA-F:]+/[0-9]+' > "$tmp6" && [ -s "$tmp6" ]; then
+        mv "$tmp6" "${CF_DIR}/cloudflare-ipv6.txt"
         echo "[entrypoint] IPv6: $(wc -l < "${CF_DIR}/cloudflare-ipv6.txt") 条"
     else
-        echo "[entrypoint] IPv6 下载失败，保留旧文件"
-        [ -f "${CF_DIR}/cloudflare-ipv6.txt" ] || echo "# Cloudflare IPv6" > "${CF_DIR}/cloudflare-ipv6.txt"
+        rm -f "$tmp6"
+        echo "[entrypoint] IPv6 下载失败或结果为空，保留旧文件"
+        if [ ! -s "${CF_DIR}/cloudflare-ipv6.txt" ]; then
+            echo "[entrypoint] ⚠ 旧文件也不存在或为空，写入占位标记"
+            echo "# Cloudflare IPv6 (fallback)" > "${CF_DIR}/cloudflare-ipv6.txt"
+        fi
     fi
 }
 
