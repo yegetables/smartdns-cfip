@@ -31,7 +31,7 @@ http_get() {
 read_ip_list() {
     file="$1"
     if [ -f "$file" ]; then
-        grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(/[0-9]+)?$' "$file" 2>/dev/null \
+        tr -d '\r' < "$file" | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(/[0-9]+)?$' 2>/dev/null \
             | sort -u | tr '\n' ',' | sed 's/,$//'
     fi
 }
@@ -39,7 +39,7 @@ read_ip_list() {
 read_ipv6_list() {
     file="$1"
     if [ -f "$file" ]; then
-        grep -E '^[0-9a-fA-F:]+(/[0-9]+)?$' "$file" 2>/dev/null \
+        tr -d '\r' < "$file" | grep -E '^[0-9a-fA-F:]+(/[0-9]+)?$' 2>/dev/null \
             | sort -u | tr '\n' ',' | sed 's/,$//'
     fi
 }
