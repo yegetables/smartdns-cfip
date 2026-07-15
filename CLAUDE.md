@@ -26,6 +26,13 @@ D:\tools\cf-data-web\
     └── preferred-ipv4.txt      # 纯 IP 列表
 ```
 
+## 首次使用
+
+```bash
+# 克隆后在项目根目录执行，自动下载适配架构的 cfdata 主程序
+python scripts/setup.py
+```
+
 ## 脚本用法
 
 ### cf-optimize.py — 完整优选流程
