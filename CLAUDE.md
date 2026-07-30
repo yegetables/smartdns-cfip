@@ -50,8 +50,9 @@ python scripts/setup.py
 
 ```bash
 cd D:/tools/cf-data-web
-python scripts/cf-optimize.py [端口号]
+python scripts/cf-optimize.py [端口号] [--no-merge]
 # 默认端口 443
+# --no-merge: 不合并上次 edgetunnel.txt，只用 ALL.txt 测速
 ```
 
 **流程：**
@@ -69,17 +70,21 @@ SPEEDTEST = 8      # 测速并发线程数
 RESULTLIMIT = 400  # 延迟扫描上限
 ```
 
-### bestcf-optimize.py — 流程2（现流程，爬虫聚合源）
+### bestcf-optimize.py — 流程2（现流程，爬虫聚合源，默认推荐）
 
 ```bash
 cd D:/tools/cf-data-web
-# 1. 下载聚合源（支持 aria2c 断点续传）
+# 1. 下载聚合源（aria2c 断点续传，GitHub raw 失败自动通过 gh-proxy.com 重试）
 python scripts/bestcf-download.py
 # 2. 合并 raw/ 下载文件（排除含"联通"/"电信"关键字的行）
 python scripts/bestcf-merge.py
-# 3. 合并上次 edgetunnel.txt + merged-raw.txt 后统一测速
-python scripts/bestcf-optimize.py [端口号]
+# 3. 测速（推荐：默认不合并旧 IP）
+python scripts/bestcf-optimize.py [--port <端口>] [--no-merge|--merge]
 # 默认端口 443
+# --no-merge: 不合并上次 edgetunnel.txt，只用 merged-raw.txt 测速（推荐默认行为）
+# --merge:    显式合并上次 edgetunnel.txt（覆盖 --no-merge）
+# --port:     显式指定端口，与位置参数二选一（例: --port 8443）
+# 向后兼容: python bestcf-optimize.py 443 --no-merge 仍然可用
 ```
 
 **流程：**
@@ -110,7 +115,7 @@ python scripts/deploy-cf.py
 1. dos2unix 转换换行符
 2. scp preferred-ipv4.txt → pve.fnos
 3. scp edgetunnel.txt → pve.fnos
-4. ssh git add + commit + push
+4. ssh git add + commit + push（push 被拒时自动 git pull --rebase 后重试）
 5. ssh docker restart smartdns
 
 空文件保护：两个源文件都为空时终止部署。
@@ -164,9 +169,9 @@ cfdata 输出的 txt 以 UTF-8 BOM（`\ufeff`）开头。读取后需 `line.stri
 ### 后台执行 + 日志监控（防超时丢数据）
 
 cfdata 仅在测速完全结束后才一次性写入输出文件。前台等待如果超时会导致所有数据丢失。脚本采用：
-- cfdata 在后台运行，stdout/stderr 追加到 `outputs/cf-optimize.log`
-- 每 20 秒用 `tail -n 10` 读取日志最后 10 行对比
-- 连续 20 秒无新输出则提示用户
+- cfdata 在后台运行，stdout/stderr 追加到日志文件
+- 每 20 秒读取日志最后 10 行对比，配合 `proc.poll()` 判断进程存活
+- 连续 20 秒无新输出则提示用户，同时显示进程仍存活或已退出
 - 进程退出后自动 mv 结果文件
 
 ### 代理环境下测速可能失败
@@ -184,6 +189,15 @@ cfdata 仅在测速完全结束后才一次性写入输出文件。前台等待�
 - 目标路径：`cloudflare-ips/preferred-ipv4.txt`、`others-preferred-cfip/edgetunnel.txt`
 - 部署后：docker restart smartdns
 - 远程默认 shell 为 fish，ssh 命令注意语法兼容
+
+## 关键记录（2026-07-26 优化）
+
+- **默认流程：流程2（BestCF 聚合源测速）**。推荐工作流：`bestcf-download.py` → `bestcf-merge.py` → `bestcf-optimize.py --no-merge`
+- **默认不合并旧 IP**（`--no-merge`），`--merge` 为显式合并选项
+- 流程1（cf-optimize.py）仅在需要从本地 ALL.txt 测速时使用
+- bestcf-download.py 失败时自动通过 gh-proxy.com 重试 GitHub raw 源，并输出下载汇总
+- deploy-cf.py push 被拒时自动 `git pull --rebase` 后重试
+- 日志监控无输出时同时显示进程存活状态
 
 ## 工作流记忆
 

@@ -12,6 +12,7 @@ CF IP 优选完整工作流
 """
 
 import os
+import shutil
 import sys
 
 import cfrunner
@@ -19,6 +20,7 @@ from cfrunner import log
 
 # ===== 配置 =====
 PORT = sys.argv[1] if len(sys.argv) > 1 else "443"
+NO_MERGE = "--no-merge" in sys.argv
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUTS = os.path.join(ROOT, "outputs")
 PORTS = os.path.join(ROOT, "ports")
@@ -40,20 +42,28 @@ def main():
     log("=" * 44)
     log(f" CF IP 优选 — 端口 {PORT}")
     log(f" 速度下限: {SPEEDMIN}MB/s  保留: {SPEEDLIMIT} 个")
+    if NO_MERGE:
+        log(" ⚠️ 不合并上次 edgetunnel.txt")
     log("=" * 44)
     log("")
 
     # ---- 步骤 1: 合并源文件 ----
-    log("[1/5] 合并源文件（上次 edgetunnel.txt + ALL.txt）")
-    previous_used, new_added, total = cfrunner.merge_with_previous(
-        EDGETUNNEL, INPUT_FILE, RESULTLIMIT, MERGED_SRC
-    )
-    if previous_used:
-        log("      加入上次 edgetunnel.txt")
-    if new_added:
-        log(f"      加入 {INPUT_FILE} (前 {new_added} 条)")
-    log(f"      共 {total} 条")
-    log("")
+    if NO_MERGE:
+        log("[1/5] 不使用上次 edgetunnel.txt，直接用 ALL.txt")
+        shutil.copy2(INPUT_FILE, MERGED_SRC)
+        log(f"      → {INPUT_FILE}")
+        log("")
+    else:
+        log("[1/5] 合并源文件（上次 edgetunnel.txt + ALL.txt）")
+        previous_used, new_added, total = cfrunner.merge_with_previous(
+            EDGETUNNEL, INPUT_FILE, RESULTLIMIT, MERGED_SRC
+        )
+        if previous_used:
+            log("      加入上次 edgetunnel.txt")
+        if new_added:
+            log(f"      加入 {INPUT_FILE} (前 {new_added} 条)")
+        log(f"      共 {total} 条")
+        log("")
 
     # ---- 步骤 2: 统一测速 ----
     log("[2/5] 统一测速 (后台执行)")
