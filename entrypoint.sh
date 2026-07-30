@@ -91,7 +91,7 @@ generate_ip_rules() {
     # IPv4: CF A 记录 → 屏蔽 AAAA + 替换为优选 IPv4
     if [ -n "$IPV4_LIST" ]; then
         echo "[entrypoint] CF 优选 IPv4: ${IPV4_LIST}" >&2
-        RULES="ip-rules ip-set:cloudflare-ipv4 -no-ipv6 -ip-alias ${IPV4_LIST}"
+        RULES="ip-rules ip-set:cloudflare-ipv4 -ip-alias ${IPV4_LIST}"
     else
         echo "[entrypoint] ⚠ preferred-ipv4.txt 为空，CF 优选未生效" >&2
         RULES="# preferred-ipv4.txt 为空，CF 优选未生效"
@@ -101,7 +101,7 @@ generate_ip_rules() {
     if [ -n "$IPV6_LIST" ]; then
         echo "[entrypoint] CF IPv6 优选 (备用): ${IPV6_LIST}" >&2
         RULES="${RULES}
-ip-rules ip-set:cloudflare-ipv6 -no-ipv6 -ip-alias ${IPV6_LIST}"
+ip-rules ip-set:cloudflare-ipv6 -ip-alias ${IPV6_LIST}"
     else
         # 无优选 IPv6 时，仍然屏蔽 CF AAAA
         RULES="${RULES}
