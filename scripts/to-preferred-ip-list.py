@@ -9,7 +9,9 @@
   python to-preferred-ip-list.py ip.txt         # 指定输入文件
   python to-preferred-ip-list.py ip.txt -o out.txt
 """
-import sys, re
+import sys
+
+import cfrunner
 
 src = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith('-') else 'ip.txt'
 out = 'preferred-ipv4.txt'
@@ -18,17 +20,10 @@ if '-o' in sys.argv:
     if i + 1 < len(sys.argv):
         out = sys.argv[i + 1]
 
-ips = []
 with open(src) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
-            continue
-        ip = line.split(':')[0]  # "IP:PORT#..." → IP
-        if ip:
-            ips.append(ip)
+    lines = [line.strip() for line in f if line.strip()]
 
-with open(out, 'w') as f:
-    f.write('\n'.join(ips) + '\n')
+ips = cfrunner.extract_ips(lines)
+cfrunner.write_lines(out, ips)
 
 print(f'{out}  ({len(ips)} 条)')

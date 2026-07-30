@@ -86,6 +86,16 @@ def main():
 
     log("       git push")
     rc = run(f'ssh {REMOTE} "cd {REMOTE_BASE} && git push"', timeout=30)
+    if rc != 0:
+        log("       ⚠️ push 被拒，执行 git pull --rebase 后重试")
+        rc = run(f'ssh {REMOTE} "cd {REMOTE_BASE} && git pull --rebase"', timeout=30)
+        if rc != 0:
+            log("       ❌ git pull --rebase 失败，终止部署")
+            sys.exit(rc)
+        log("       git push (重试)")
+        rc = run(f'ssh {REMOTE} "cd {REMOTE_BASE} && git push"', timeout=30)
+        if rc != 0:
+            sys.exit(rc)
 
     log("[4/4] docker restart smartdns")
     rc = run(f'ssh {REMOTE} "docker restart smartdns"')

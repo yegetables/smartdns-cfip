@@ -13,17 +13,28 @@ D:\tools\cf-data-web\
 │   ├── 8443\ALL.txt            # 非标端口
 │   └── ...
 ├── scripts\                    # Python 脚本
-│   ├── cf-optimize.py          # 完整优选工作流
+│   ├── cfrunner.py             # 两条流程共用的库模块（非可执行脚本）
+│   ├── cf-optimize.py          # 流程1（源流程）：ports/PORT/ALL.txt 测速
+│   ├── bestcf-download.py      # 流程2：按 download-list.txt 用 aria2c 下载聚合源
+│   ├── bestcf-merge.py         # 流程2：合并 raw/ 下载文件 → merged-raw.txt
+│   ├── bestcf-optimize.py      # 流程2（现流程）：merged-raw.txt 测速
 │   ├── deploy-cf.py            # 部署到 pve.fnos
 │   ├── sort-results.py         # 终端查看 ip.csv 排序
-│   └── to-preferred-ip-list.py # ip.txt → 纯 IP 列表
-└── outputs\                    # 测速输出
-    ├── cf-optimize.log         # 运行日志 (tail -f)
-    ├── port-443.csv            # 测速原始数据
-    ├── port-443-ip.txt         # 测速达标结果
-    ├── edgetunnel.txt          # 合并结果 (top N)
-    ├── ip.txt                  # 同 edgetunnel 格式
-    └── preferred-ipv4.txt      # 纯 IP 列表
+│   └── to-preferred-ip-list.py # ip.txt → 纯 IP 列表（手动工具）
+└── outputs\                    # 测速输出（流程1、流程2共享，互相覆盖）
+    ├── cf-optimize.log         # 流程1运行日志 (tail -f)
+    ├── port-443.csv            # 流程1测速原始数据
+    ├── port-443-ip.txt         # 流程1测速达标结果
+    ├── edgetunnel.txt          # 合并结果 (top N，流程1/2 共享，谁后跑覆盖谁)
+    ├── ip.txt                  # 同 edgetunnel 格式（流程1/2 共享）
+    ├── preferred-ipv4.txt      # 纯 IP 列表（仅443端口，流程1/2 共享）
+    └── bestcf-tmp\             # 流程2专属中间目录
+        ├── download-list.txt   # 待下载的聚合源 URL 列表
+        ├── raw\                # 下载得到的原始文件
+        ├── merged-raw.txt      # raw/ 合并结果（已排除"联通"/"电信"关键字行）
+        ├── bestcf-ip.csv       # 流程2测速原始数据
+        ├── bestcf-ip.txt       # 流程2测速达标结果
+        └── bestcf-optimize.log # 流程2运行日志
 ```
 
 ## 首次使用
@@ -35,7 +46,7 @@ python scripts/setup.py
 
 ## 脚本用法
 
-### cf-optimize.py — 完整优选流程
+### cf-optimize.py — 流程1（源流程）
 
 ```bash
 cd D:/tools/cf-data-web
@@ -44,12 +55,11 @@ python scripts/cf-optimize.py [端口号]
 ```
 
 **流程：**
-1. 存档 edgetunnel.txt → old-edgetunnel.txt
-2. 合并 old-edgetunnel.txt + ports/PORT/ALL.txt 前 N 条 → 统一源文件
-3. 一次统一测速（后台执行 + 20s 日志监控）
-4. 排序去重取 top N → edgetunnel.txt
-5. 生成 ip.txt + preferred-ipv4.txt
-6. 清理中间文件
+1. 合并 上次 edgetunnel.txt + ports/PORT/ALL.txt 前 N 条 → 统一源文件
+2. 一次统一测速（后台执行 + 20s 日志监控）
+3. 排序去重取 top N → edgetunnel.txt
+4. 生成 ip.txt + preferred-ipv4.txt（仅443端口）
+5. 清理中间文件
 
 **可调参数（文件顶部）：**
 ```python
@@ -58,6 +68,37 @@ SPEEDLIMIT = 10    # 最终保留数
 SPEEDTEST = 8      # 测速并发线程数
 RESULTLIMIT = 400  # 延迟扫描上限
 ```
+
+### bestcf-optimize.py — 流程2（现流程，爬虫聚合源）
+
+```bash
+cd D:/tools/cf-data-web
+# 1. 下载聚合源（支持 aria2c 断点续传）
+python scripts/bestcf-download.py
+# 2. 合并 raw/ 下载文件（排除含"联通"/"电信"关键字的行）
+python scripts/bestcf-merge.py
+# 3. 合并上次 edgetunnel.txt + merged-raw.txt 后统一测速
+python scripts/bestcf-optimize.py [端口号]
+# 默认端口 443
+```
+
+**流程：**
+1. 合并 上次 edgetunnel.txt + outputs/bestcf-tmp/merged-raw.txt 前 N 条 → 统一源文件
+2. 一次统一测速（后台执行 + 20s 日志监控）
+3. 排序去重取 top N → edgetunnel.txt
+4. 生成 ip.txt + preferred-ipv4.txt（仅443端口）
+5. 清理中间文件
+
+**可调参数（文件顶部）：**
+```python
+DELAY = 500          # 扫描合格延迟 ms
+RESULTLIMIT = 10000  # 扫描合格数量上限
+SPEEDMIN = 5         # 速度达标下限 MB/s
+SPEEDLIMIT = 20      # 最终保留数
+SPEEDTEST = 8        # 测速并发线程数
+```
+
+> 流程1、流程2的最终产出 `outputs/edgetunnel.txt`、`outputs/ip.txt`、`outputs/preferred-ipv4.txt` 是**同一份文件**，两条流程互相覆盖对方的结果（谁后运行谁生效）；测速原始数据/日志等中间文件仍按各自流程的前缀命名，不互相覆盖。
 
 ### deploy-cf.py — 部署到远程服务器
 
@@ -146,8 +187,9 @@ cfdata 仅在测速完全结束后才一次性写入输出文件。前台等待�
 
 ## 工作流记忆
 
-- 每次测速先读取 outputs/edgetunnel.txt 作为旧 IP 源
-- 合并旧 IP + ALL.txt 统一测速
+- 每次测速先读取 outputs/edgetunnel.txt 作为旧 IP 源（流程1、流程2共用同一份 edgetunnel.txt）
+- 合并旧 IP + 本流程新数据源（流程1: ALL.txt；流程2: merged-raw.txt）统一测速
 - 排序去重取 top N
+- preferred-ipv4.txt 生成时仅保留443端口的条目（edgetunnel.txt 本身不做端口过滤）
 - 部署前 dos2unix 转 LF
 - 项目经验已全部位于本项目 CLAUDE.md，不再写入 agent 全局记忆
